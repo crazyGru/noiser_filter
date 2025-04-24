@@ -131,7 +131,10 @@ class AudioFilterApp(QMainWindow):
                     y=processed,
                     sr=48000,
                     stationary=True,
-                    prop_decrease=1.0
+                    prop_decrease=1.0,
+                    n_fft=256,
+                    win_length=256,
+                    hop_length=128
                 )
             else:
                 # No filter
