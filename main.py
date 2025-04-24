@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtCore import Qt, QTimer
 import noisereduce as nr
+from pyrnnoise import RNNoise
 
 class WaveformWidget(QWidget):
     def __init__(self):
@@ -82,6 +83,7 @@ class AudioFilterApp(QMainWindow):
         self.output_label = QLabel("Output Volume: 100%")
 
         self.waveform = WaveformWidget()
+        self.rnnoise_inst = RNNoise(sample_rate=48000)
 
         self.start_button.clicked.connect(self.start_stream)
         self.stop_button.clicked.connect(self.stop_stream)
@@ -126,16 +128,13 @@ class AudioFilterApp(QMainWindow):
             self.waveform.update_waveform(processed[:480])
 
             if self.filter_enabled:
-                # Convert to int16 for RNNoise
-                out_float32 = nr.reduce_noise(
-                    y=processed,
-                    sr=48000,
-                    stationary=True,
-                    prop_decrease=1.0,
-                    n_fft=256,
-                    win_length=256,
-                    hop_length=128
-                )
+                int_data = (processed * 32768).astype(np.int16)
+                denoised = np.zeros_like(int_data)
+
+                for i in range(len(int_data)):
+                    denoised[i] = self.rnnoise_inst.process_frame(int_data[i])
+
+                out_float32 = denoised.astype(np.float32) / 32768.0
             else:
                 # No filter
                 out_float32 = processed
