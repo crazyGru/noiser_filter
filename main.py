@@ -147,6 +147,9 @@ class AudioFilterApp(QMainWindow):
                 out_float32 = processed
 
             # Apply output volume and write to outdata
+            print("outdata.shape:", outdata.shape)
+            print("out_float32.shape:", out_float32.shape)
+
             outdata[:, 0] = out_float32 * self.output_volume
 
         except Exception as e:
