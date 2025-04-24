@@ -131,7 +131,6 @@ class AudioFilterApp(QMainWindow):
                     y=processed,
                     sr=48000,
                     stationary=True,
-                    use_tensorflow=False,  # make sure it's lightweight
                     prop_decrease=1.0
                 )
             else:
