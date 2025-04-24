@@ -44,7 +44,7 @@ class WaveformWidget(QWidget):
             y2 = mid_y - self.audio_data[i+1] * scale_y
             painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-noise_sample = np.zeros(1024)
+
 class AudioFilterApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -122,19 +122,24 @@ class AudioFilterApp(QMainWindow):
         try:
             # Flatten and apply gain
             input_data = indata[:, 0]
-            audio_data = input_data * self.input_gain
+            processed = input_data * self.input_gain
 
             # Update live waveform
-            self.waveform.update_waveform(audio_data[:480])
+            self.waveform.update_waveform(processed[:480])
 
             if self.filter_enabled:
-                filtered = nr.reduce_noise(y=audio_data, sr=16000, y_noise=noise_sample)
-                out_float32 = filtered.reshape(-1, 1)
+                int_data = (processed * 32768).astype(np.int16)
+                denoised = np.zeros_like(int_data)
+                denoised_int16 = self.rnnoise_inst.process_frame(int_data)
+                out_float32 = denoised_int16.astype(np.float32) / 32768.0
             else:
                 # No filter
-                out_float32 = audio_data
+                out_float32 = processed
 
+            out_float32 = np.asarray(out_float32).flatten()
             out_float32 *= self.output_volume
+            out_float32 = np.clip(out_float32, -1.0, 1.0)
+            outdata[:] = out_float32.reshape(-1, 1)
 
         except Exception as e:
             print(f"Audio callback error: {e}")
