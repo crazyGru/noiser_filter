@@ -130,11 +130,8 @@ class AudioFilterApp(QMainWindow):
             if self.filter_enabled:
                 int_data = (processed * 32768).astype(np.int16)
                 denoised = np.zeros_like(int_data)
-
-                for i in range(len(int_data)):
-                    denoised[i] = self.rnnoise_inst.process_frame(int_data[i])
-
-                out_float32 = denoised.astype(np.float32) / 32768.0
+                denoised_int16 = self.rnnoise_inst.process_frame(int_data)
+                out_float32 = denoised_int16.astype(np.float32) / 32768.0
             else:
                 # No filter
                 out_float32 = processed
