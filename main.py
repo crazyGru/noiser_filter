@@ -127,18 +127,7 @@ class AudioFilterApp(QMainWindow):
             if self.filter_enabled:
                 # Convert to int16 for RNNoise
                 int_data = (processed * 32768).astype(np.int16)
-                bytes_in = int_data.tobytes()
-
-                # Write to RNNoise stdin
-                self.process.stdin.write(bytes_in)
-                self.process.stdin.flush()
-
-                # Read back filtered output
-                expected_bytes = frames * 2  # 2 bytes per int16 sample
-                out_bytes = self.process.stdout.read(expected_bytes)
-
-                if len(out_bytes) != expected_bytes:
-                    raise ValueError(f"RNNoise returned {len(out_bytes)} bytes, expected {expected_bytes}")
+                out_bytes = self.process_with_rnnoise(int_data)
 
                 out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
                 out_float32 = out_int16.astype(np.float32) / 32768.0
@@ -199,6 +188,21 @@ class AudioFilterApp(QMainWindow):
             self.process = None
 
         self.status_label.setText("Status: Stopped")
+
+    def process_with_rnnoise(self, input_int16):
+        process = subprocess.Popen(
+            ['rnnoise'],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            bufsize=0
+        )
+        process.stdin.write(input_int16.tobytes())
+        process.stdin.flush()
+        output_bytes = process.stdout.read(len(input_int16) * 2)
+        process.terminate()
+        return output_bytes
+
 
 
 if __name__ == "__main__":
