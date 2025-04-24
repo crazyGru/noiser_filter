@@ -80,16 +80,6 @@ class AudioFilterApp(QMainWindow):
         self.input_label = QLabel("Input Gain: 100%")
         self.output_label = QLabel("Output Volume: 100%")
 
-        self.input_devices = [
-            device for device in sd.query_devices() if device['max_input_channels'] > 0
-        ]
-        self.device_selector = QComboBox()
-        for i, device in enumerate(self.input_devices):
-            self.device_selector.addItem(f"{i}:{device['name']}")
-        
-        self.device_index = 0
-        self.device_selector.currentIndexChanged.connect(self.select_device)
-
         self.waveform = WaveformWidget()
 
         self.start_button.clicked.connect(self.start_stream)
@@ -106,8 +96,6 @@ class AudioFilterApp(QMainWindow):
         layout.addWidget(self.input_slider)
         layout.addWidget(self.output_label)
         layout.addWidget(self.output_slider)
-        layout.addWidget(QLabel("Select Microphone:"))
-        layout.addWidget(self.device_selector)
 
         container = QWidget()
         container.setLayout(layout)
@@ -123,9 +111,6 @@ class AudioFilterApp(QMainWindow):
     def update_output_volume(self, value):
         self.output_volume = value / 100.0
         self.output_label.setText(f"Output Volume: {value}%")
-    
-    def select_device(self, index):
-        self.device_index = self.input_devices[index]['index']
 
     def audio_callback(self, indata, outdata, frames, time, status):
         if status:
