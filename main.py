@@ -127,10 +127,17 @@ class AudioFilterApp(QMainWindow):
             if self.filter_enabled:
                 # Convert to int16 for RNNoise
                 int_data = (processed * 32768).astype(np.int16)
-                out_bytes = self.process_with_rnnoise(int_data)
+                try:
+                    out_bytes = self.process_with_rnnoise(int_data)
+                    if len(out_bytes) != len(int_data) * 2:
+                        raise ValueError(f"RNNoise returned {len(out_bytes)} bytes (expected {len(int_data) * 2})")
 
-                out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
-                out_float32 = out_int16.astype(np.float32) / 32768.0
+                    out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
+                    out_float32 = out_int16.astype(np.float32) / 32768.0
+
+                except Exception as e:
+                    print(f"RNNoise error: {e}")
+                    out_float32 = np.zeros(480, dtype=np.float32)  # safe fallback
             else:
                 # No filter
                 out_float32 = processed
@@ -139,7 +146,10 @@ class AudioFilterApp(QMainWindow):
             print("outdata.shape:", outdata.shape)
             print("out_float32.shape:", out_float32.shape)
 
-            outdata[:, 0] = out_float32 * self.output_volume
+            out_float32 = np.asarray(out_float32).flatten()
+            out_float32 *= self.output_volume
+            out_float32 = np.clip(out_float32, -1.0, 1.0)
+            outdata[:] = out_float32.reshape(-1, 1)
 
         except Exception as e:
             print(f"Audio callback error: {e}")
