@@ -168,6 +168,7 @@ class AudioFilterApp(QMainWindow):
 
                 self.stream = sd.Stream(
                     samplerate=48000,
+                    device=None,
                     channels=1,
                     blocksize=480,  # 10ms
                     dtype='float32',
