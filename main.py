@@ -116,39 +116,43 @@ class AudioFilterApp(QMainWindow):
         if status:
             print(status)
 
-        # Apply input gain
-        processed = indata[:, 0] * self.input_gain
-        self.waveform.update_waveform(processed[:480])
-
-        # Convert to int16 for rnnoise-cli
-        int_data = (indata[:, 0] * 32768).astype(np.int16)
-
         try:
+            # Flatten and apply gain
+            input_data = indata[:, 0]
+            processed = input_data * self.input_gain
+
+            # Update live waveform
+            self.waveform.update_waveform(processed[:480])
+
             if self.filter_enabled:
-                try:
-                    bytes_in = int_data.tobytes()
-                    self.process.stdin.write(bytes_in)
-                    self.process.stdin.flush()
+                # Convert to int16 for RNNoise
+                int_data = (processed * 32768).astype(np.int16)
+                bytes_in = int_data.tobytes()
 
-                    expected_bytes = frames * 2
-                    out_bytes = self.process.stdout.read(expected_bytes)
+                # Write to RNNoise stdin
+                self.process.stdin.write(bytes_in)
+                self.process.stdin.flush()
 
-                    if len(out_bytes) != expected_bytes:
-                        raise ValueError(f"Expected {expected_bytes} bytes from RNNoise, got {len(out_bytes)}")
-                
-                    out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
-                    out_float32 = out_int16.astype(np.float32) / 32768.0
-                except Exception as e:
-                    print(f"RNNoise error: {e}")
-                    out_float32 = np.zeros(frames, dtype=np.float32)
+                # Read back filtered output
+                expected_bytes = frames * 2  # 2 bytes per int16 sample
+                out_bytes = self.process.stdout.read(expected_bytes)
+
+                if len(out_bytes) != expected_bytes:
+                    raise ValueError(f"RNNoise returned {len(out_bytes)} bytes, expected {expected_bytes}")
+
+                out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
+                out_float32 = out_int16.astype(np.float32) / 32768.0
             else:
-                out_float32 = processed  # bypass filter
+                # No filter
+                out_float32 = processed
 
-            # Apply output volume
+            # Apply output volume and write to outdata
             outdata[:, 0] = out_float32 * self.output_volume
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Audio callback error: {e}")
+            outdata.fill(0)
+
 
     def start_stream(self):
         if self.stream is None:
@@ -165,7 +169,7 @@ class AudioFilterApp(QMainWindow):
                     samplerate=48000,
                     device=None,
                     channels=1,
-                    blocksize=480,  # 10ms
+                    blocksize=480,
                     dtype='float32',
                     callback=self.audio_callback
                 )
@@ -173,8 +177,7 @@ class AudioFilterApp(QMainWindow):
                 self.status_label.setText("Status: Running")
             except Exception as e:
                 self.status_label.setText(f"Error: {e}")
-                self.process = None
-                self.stream = None
+                self.stop_stream()
 
     def stop_stream(self):
         if self.stream is not None:
@@ -182,8 +185,14 @@ class AudioFilterApp(QMainWindow):
             self.stream.close()
             self.stream = None
 
-        if self.process is not None:
+        if self.process:
+            try:
+                self.process.stdin.close()
+                self.process.stdout.close()
+            except:
+                pass
             self.process.terminate()
+            self.process.wait()
             self.process = None
 
         self.status_label.setText("Status: Stopped")
