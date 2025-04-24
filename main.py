@@ -125,12 +125,22 @@ class AudioFilterApp(QMainWindow):
 
         try:
             if self.filter_enabled:
-                self.process.stdin.write(int_data.tobytes())
-                self.process.stdin.flush()
+                try:
+                    bytes_in = int_data.tobytes()
+                    self.process.stdin.write(bytes_in)
+                    self.process.stdin.flush()
 
-                out_bytes = self.process.stdout.read(frames * 2)
-                out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
-                out_float32 = out_int16.astype(np.float32) / 32768.0
+                    expected_bytes = frames * 2
+                    out_bytes = self.process.stdout.read(expected_bytes)
+
+                    if len(out_bytes) != expected_bytes:
+                        raise ValueError(f"Expected {expected_bytes} bytes from RNNoise, got {len(out_bytes)}")
+                
+                    out_int16 = np.frombuffer(out_bytes, dtype=np.int16)
+                    out_float32 = out_int16.astype(np.float32) / 32768.0
+                except Exception as e:
+                    print(f"RNNoise error: {e}")
+                    out_float32 = np.zeros(frames, dtype=np.float32)
             else:
                 out_float32 = processed  # bypass filter
 
