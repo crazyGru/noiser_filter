@@ -128,12 +128,12 @@ class AudioFilterApp(QMainWindow):
         self.device_index = self.input_devices[index]['index']
 
     def audio_callback(self, indata, outdata, frames, time, status):
-        self.waveform.update_waveform(processed[:480])
         if status:
             print(status)
 
         # Apply input gain
         processed = indata[:, 0] * self.input_gain
+        self.waveform.update_waveform(processed[:480])
 
         # Convert to int16 for rnnoise-cli
         int_data = (indata[:, 0] * 32768).astype(np.int16)
